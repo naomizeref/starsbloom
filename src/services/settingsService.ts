@@ -6,11 +6,11 @@ export const SETTINGS_STORAGE_KEY = "bloom_app_settings";
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   companyName: "Bloom",
-  supportEmail: "support@bloomsinvest.co",
+  supportEmail: "support@joinbloom.online",
   supportPhone: "+1 (840) 234-4828",
   companyAddress: "2780 Candlelight Drive, La Porte, TX 77571, USA",
   senderName: "Bloom",
-  replyToEmail: "support@bloomsinvest.co",
+  replyToEmail: "support@joinbloom.online",
   chatwayWidgetId: "vVN5iAZMVnWm"
 };
 export const DEFAULT_SITE_CONTENT: SiteContent = {

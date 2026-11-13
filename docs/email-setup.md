@@ -1,3 +1,33 @@
+## starsbloom deposit email troubleshooting — November 13, 2026
+
+Clerk sends authentication codes; deposit notifications use the separate Resend
+configuration in the starsbloom Vercel project. Successful signup does not prove
+transactional email is configured.
+
+Check Production `RESEND_API_KEY` and `RESEND_FROM_EMAIL`. The sender must belong
+to a domain verified in the Resend account that owns this key. For a verified
+`joinbloom.online` domain, use `Bloom <notifications@joinbloom.online>`. Save and
+redeploy after changing variables.
+
+For the existing deposit, inspect Resend's Logs and Emails, or the browser Network
+response for `/api/send-email` if still available. Do not resubmit the deposit just
+to test email. Share only status and safe error code, never Authorization headers,
+API keys, or raw request bodies. A rejected request may appear in Logs without an
+entry in Emails. An accepted message can still bounce or be filtered by the inbox.
+
+Local diagnostics distinguish `EMAIL_NOT_CONFIGURED`,
+`EMAIL_SENDER_NOT_VERIFIED`, and `EMAIL_API_KEY_INVALID`. Failed deposit email now
+shows a separate notice; the saved deposit remains successful. Failed sends are
+not marked accepted. Existing failed notifications are not automatically replayed.
+The owner reports that the deposit email is marked Delivered in Resend. That
+means the recipient mail server accepted it; inbox placement is still unconfirmed.
+Check the recipient and subject on that event, then Spam/Junk, Promotions, filters
+and forwarding. There is no confirmed provider rejection for this deposit. The
+local diagnostics improve future failures; they do not change inbox placement.
+
+References: [Resend errors](https://resend.com/docs/api-reference/errors),
+[Sending email](https://resend.com/docs/dashboard/emails/introduction).
+
 # Bloom email setup and release
 
 The November 6, 2026 update is prepared locally. No production emails have been sent during testing, and no database migration is needed for this update. Bloom already uses `public.auth_email_codes` from the earlier upgrade.

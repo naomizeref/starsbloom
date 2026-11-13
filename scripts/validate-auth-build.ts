@@ -2,7 +2,12 @@ type AuthBuildEnvironment = Record<string, string | undefined>;
 
 function provider(env: AuthBuildEnvironment, name: string) {
   const value = env[name];
-  if (value === undefined) return 'supabase';
+  if (value === undefined) {
+    if (env.VERCEL_ENV === 'production') {
+      throw new Error(`[Bloom auth build] ${name} is missing in Production. Set both provider flags explicitly; a new Vercel project must not silently fall back to legacy authentication.`);
+    }
+    return 'supabase';
+  }
   if (value === 'clerk' || value === 'supabase') return value;
   // Do not echo arbitrary environment values: a key may have been pasted here.
   throw new Error(`[Bloom auth build] ${name} must be exactly clerk or supabase, without quotes, spaces or newlines.`);
@@ -17,6 +22,13 @@ export function validateAuthBuild(env: AuthBuildEnvironment) {
   const key = env.VITE_CLERK_PUBLISHABLE_KEY || '';
   if (frontend === 'clerk' && (key !== key.trim() || !/^pk_(live|test)_[A-Za-z0-9_-]+$/.test(key))) {
     throw new Error('[Bloom auth build] Clerk requires VITE_CLERK_PUBLISHABLE_KEY in the build environment. Use the public pk_live_ or pk_test_ key, without spaces or newlines.');
+  }
+  if (frontend === 'clerk' && env.VERCEL_ENV === 'production') {
+    for (const name of ['CLERK_SECRET_KEY', 'CLERK_JWT_ISSUER', 'CLERK_AUTHORIZED_PARTIES', 'SUPABASE_SERVICE_ROLE_KEY']) {
+      if (!env[name]?.trim()) {
+        throw new Error(`[Bloom auth build] ${name} is missing in Production. Configure it in this Vercel project before deploying Clerk authentication.`);
+      }
+    }
   }
   return frontend;
 }

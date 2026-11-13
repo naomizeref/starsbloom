@@ -386,7 +386,7 @@ export const resolveEvent = (eventType: string, metadata: any) => {
 
 export function buildEmail(eventType: string, metadata: Record<string, any> = {}) {
   const companyName = String(metadata.companyName || "Bloom");
-  const supportEmail = String(metadata.supportEmail || "support@bloomsinvest.co");
+  const supportEmail = String(metadata.supportEmail || "support@joinbloom.online");
   const event = resolveEvent(eventType, { ...metadata, companyName });
   const greeting = String(metadata.name || metadata.firstName || "there");
   const code = /^(EMAIL_VERIFICATION|PASSWORD_RESET)$/.test(eventType) ? String(metadata.code || "") : "";

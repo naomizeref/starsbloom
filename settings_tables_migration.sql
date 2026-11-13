@@ -91,11 +91,11 @@ values (
   'business',
   '{
     "companyName":    "Bloom",
-    "supportEmail":   "support@bloomsinvest.co",
+    "supportEmail":   "support@joinbloom.online",
     "supportPhone":   "",
     "companyAddress":  "",
     "senderName":     "Bloom",
-    "replyToEmail":   "support@bloomsinvest.co",
+    "replyToEmail":   "support@joinbloom.online",
     "chatwayWidgetId": ""
   }'::jsonb
 )

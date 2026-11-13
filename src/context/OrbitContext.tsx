@@ -343,10 +343,19 @@ export const OrbitProvider: React.FC<{ children: React.ReactNode; loadPublicCata
     eventId: string,
     metadata: Record<string, any> = {}
   ) => {
+    const reportDepositEmailFailure = () => {
+      if (eventType.startsWith("DEPOSIT_")) {
+        toast(eventType === "DEPOSIT_SUBMITTED"
+          ? "Deposit submitted. The confirmation email could not be sent."
+          : "Deposit updated. The notification email could not be sent.",
+        { id: `email-failed:${eventId}`, duration: 7000 });
+      }
+    };
     // Never silently drop a transactional email (esp. money comms) for a
     // missing recipient — surface it so it can be diagnosed, not swallowed.
     if (!to) {
-      console.error(`Transactional email ${eventType} skipped: no recipient email (eventId=${eventId}).`);
+      console.error(`Transactional email ${eventType} skipped: no recipient email.`);
+      reportDepositEmailFailure();
       return;
     }
     // Persistent dedup (already delivered) OR an in-flight send for the same
@@ -361,16 +370,18 @@ export const OrbitProvider: React.FC<{ children: React.ReactNode; loadPublicCata
       eventId,
       email: to
     }).then(result => {
-      if (result?.success === false) {
+      if (result?.success !== true) {
         // Do NOT mark as sent — a failed send must remain retryable. (The old
         // code reserved the id before sending, so any failure permanently
         // blocked re-sends of that event — e.g. the withdrawal-rejection email.)
-        console.error(`Transactional email ${eventType} failed:`, result.error || result.message);
+        console.error(`Transactional email ${eventType} failed:`, result?.code || "EMAIL_REQUEST_FAILED");
+        reportDepositEmailFailure();
         return;
       }
       markEmailEventSent(eventId);
     }).catch(error => {
       console.error(`Transactional email ${eventType} failed:`, error);
+      reportDepositEmailFailure();
     }).finally(() => {
       inFlightEmailEventsRef.current.delete(eventId);
     });

@@ -45,3 +45,19 @@ for (const width of [375, 820]) test(`emails fit a ${width}px screen with readab
     await page.screenshot({ path: `test-results/audit/email-${type}-${width}.png`, fullPage: true });
   }
 });
+
+test('deposit mail preserves the safe configuration error code for diagnosis', async ({ page }) => {
+  await page.route('https://**/*', route => route.abort());
+  await page.route('**/api/send-email', route => route.fulfill({ status: 503, contentType: 'application/json',
+    body: JSON.stringify({ success: false, code: 'EMAIL_SENDER_NOT_VERIFIED', error: 'Email could not be sent because the sending domain is not verified.' }) }));
+  await page.goto('/tests/audit/index.html?role=user&route=/dashboard/settings');
+  await expect(page.getByRole('heading', { name: 'Account settings' })).toBeVisible();
+  const result = await page.evaluate(async () => {
+    const modulePath = '/src/lib/emailClient.ts';
+    const { sendTransactionalEmail } = await import(modulePath);
+    return sendTransactionalEmail('test@example.com', 'DEPOSIT_SUBMITTED', { eventId: 'deposit:submitted:fixture', amount: 100 });
+  });
+  expect(result.success).toBe(false);
+  expect(result.code).toBe('EMAIL_SENDER_NOT_VERIFIED');
+  expect(await page.evaluate(() => (window as any).__audit.state.user.balance)).toBe(1000);
+});

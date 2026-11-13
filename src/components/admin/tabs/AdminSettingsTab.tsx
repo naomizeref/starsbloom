@@ -18,7 +18,7 @@ type FieldConfig = {
 
 const companyFields: FieldConfig[] = [
   { key: "companyName", label: "Company Name", placeholder: "Company name" },
-  { key: "supportEmail", label: "Support Email", type: "email", placeholder: "support@bloomsinvest.co" },
+  { key: "supportEmail", label: "Support Email", type: "email", placeholder: "support@joinbloom.online" },
   { key: "supportPhone", label: "Support Phone", type: "tel", placeholder: "+1 (000) 000-0000" },
   { key: "companyAddress", label: "Company Address", multiline: true, placeholder: "Business address" }
 ];

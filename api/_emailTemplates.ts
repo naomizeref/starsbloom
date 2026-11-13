@@ -5,7 +5,7 @@ export function buildEmail(eventType: string, metadata: Record<string, any> = {}
   return renderEmail(eventType, {
     ...metadata,
     companyName: process.env.BLOOM_COMPANY_NAME || "Bloom",
-    supportEmail: process.env.BLOOM_SUPPORT_EMAIL || "support@bloomsinvest.co",
+    supportEmail: process.env.BLOOM_SUPPORT_EMAIL || "support@joinbloom.online",
     siteUrl: process.env.BLOOM_SITE_URL || "",
   });
 }

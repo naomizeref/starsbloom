@@ -4,6 +4,8 @@ import { buildEmail } from "./_emailTemplates.js";
 export class EmailDeliveryError extends Error {
   constructor(public code: string, public statusCode = 503) {
     super(code === "EMAIL_NOT_CONFIGURED" ? "Email delivery is not configured. Please contact support."
+      : code === "EMAIL_SENDER_NOT_VERIFIED" ? "Email could not be sent because the sending domain is not verified. Please contact support."
+      : code === "EMAIL_API_KEY_INVALID" ? "Email could not be sent because the email service credentials are invalid. Please contact support."
       : "Email could not be sent. Please try again shortly.");
   }
 }
@@ -30,6 +32,16 @@ export async function deliverEmail(to: string, eventType: string, metadata: Reco
       });
       const data = await response.json().catch(() => null);
       if (response.ok && typeof data?.id === "string") return { id: data.id, status: "accepted" as const };
+      // Classify known provider failures without returning/logging its raw body,
+      // which can contain recipient addresses or other private request details.
+      if (response.status === 403 && data?.name === "validation_error" &&
+          typeof data.message === "string" && /domain is not verified/i.test(data.message)) {
+        throw new EmailDeliveryError("EMAIL_SENDER_NOT_VERIFIED", 503);
+      }
+      if ([400, 401].includes(response.status) && data?.name === "validation_error" &&
+          typeof data.message === "string" && /API key is invalid/i.test(data.message)) {
+        throw new EmailDeliveryError("EMAIL_API_KEY_INVALID", 503);
+      }
       // Retry transient failures with the EXACT same payload/key, never a test sender.
       const transient = response.status === 429 || response.status >= 500;
       if (!transient || attempt === 1) throw new EmailDeliveryError("EMAIL_PROVIDER_REJECTED", 502);

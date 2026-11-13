@@ -86,7 +86,7 @@ test("suspension email includes account, support details and escaped user data",
   assert.match(email.subject, /account has been suspended - Bloom/);
   assert.match(email.html, /Your account has been suspended/);
   assert.match(email.html, /Trader@example.com/);
-  assert.match(email.html, /support@bloomsinvest.co/);
+  assert.match(email.html, /support@joinbloom.online/);
   assert.ok(!email.html.includes("help@example.com"), "browser metadata cannot override support routing");
   assert.ok(!email.html.includes("<script>"));
 });

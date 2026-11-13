@@ -721,11 +721,11 @@ values (
   'business',
   '{
     "companyName": "Bloom",
-    "supportEmail": "support@bloomsinvest.co",
+    "supportEmail": "support@joinbloom.online",
     "supportPhone": "",
     "companyAddress": "",
     "senderName": "Bloom",
-    "replyToEmail": "support@bloomsinvest.co",
+    "replyToEmail": "support@joinbloom.online",
     "chatwayWidgetId": ""
   }'::jsonb
 )
@@ -733,8 +733,8 @@ on conflict (key) do nothing;
 
 update public.app_settings
    set value = jsonb_set(
-                 jsonb_set(value, '{supportEmail}', '"support@bloomsinvest.co"'),
-                 '{replyToEmail}', '"support@bloomsinvest.co"')
+                 jsonb_set(value, '{supportEmail}', '"support@joinbloom.online"'),
+                 '{replyToEmail}', '"support@joinbloom.online"')
  where key = 'business'
    and (value->>'supportEmail' = 'support@bloom.com'
         or value->>'replyToEmail' = 'support@bloom.com');

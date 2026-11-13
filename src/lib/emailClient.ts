@@ -25,8 +25,9 @@ export const sendTransactionalEmail = async (to: string, eventType: Transactiona
 
     if (!response.ok || !data || data.success !== true) {
       const errorMessage = data?.error || `Email request failed (HTTP ${response.status}).`;
-      console.error(`Email sending failed for ${eventType}:`, errorMessage);
-      return { success: false as const, error: errorMessage };
+      const code = typeof data?.code === "string" ? data.code : "EMAIL_REQUEST_FAILED";
+      console.error(`Email sending failed for ${eventType}:`, { code, status: response.status });
+      return { success: false as const, error: errorMessage, code };
     }
 
     return data;

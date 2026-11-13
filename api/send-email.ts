@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const isAdmin = profile.role === "admin";
     let recipient = to.trim().toLowerCase();
     const self = recipient === account.email.toLowerCase();
-    const supportInbox = (process.env.BLOOM_SUPPORT_EMAIL || "support@bloomsinvest.co").toLowerCase();
+    const supportInbox = (process.env.BLOOM_SUPPORT_EMAIL || "support@joinbloom.online").toLowerCase();
     let safeMetadata = { ...metadata };
     if (!self && !isAdmin) {
       // The only cross-account user email is a notification to the configured

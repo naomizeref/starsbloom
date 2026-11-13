@@ -201,3 +201,24 @@ test('password reset finds accounts beyond the first auth directory page', async
   assert.equal((await call(authHandler, { action: 'verify', purpose: 'password_reset', email, code: '123456', newPassword: 'password-123' })).status, 200);
   assert.deepEqual(pages, ['1', '2']); assert.equal(passwordWrites, 1);
 });
+
+for (const failure of [
+  { status: 403, message: 'The private-sender.example domain is not verified. Private provider detail.', code: 'EMAIL_SENDER_NOT_VERIFIED' },
+  { status: 401, message: 'API key is invalid. Private provider detail.', code: 'EMAIL_API_KEY_INVALID' },
+]) test(`deposit notification reports ${failure.code} safely without retries`, async () => {
+  let attempts = 0;
+  globalThis.fetch = (async (input, init) => {
+    if (String(input).startsWith('https://api.resend.com/')) {
+      attempts++;
+      return response({ name: 'validation_error', message: failure.message }, failure.status);
+    }
+    return mockFetch(input, init);
+  }) as typeof fetch;
+  const { status, result } = await call(sendHandler, notification(email, 'DEPOSIT_SUBMITTED', { amount: 100 }));
+  assert.equal(status, 503);
+  assert.equal(result.success, false);
+  assert.equal(result.code, failure.code);
+  assert.doesNotMatch(JSON.stringify(result), /private-sender|Private provider detail/);
+  assert.equal(attempts, 1);
+  assert.equal(passwordWrites, 0);
+});
