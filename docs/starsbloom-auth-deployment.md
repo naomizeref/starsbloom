@@ -31,3 +31,21 @@ Keep existing database identity mappings and the existing Clerk application. No 
 5. Test an existing user/admin login and one controlled registration. Verify the existing account and balances are preserved.
 
 The build guard rejects missing Production provider flags instead of silently selecting Supabase, and rejects missing Clerk server configuration. It cannot inspect which deployment a custom domain points to, verify secret validity, or replace a hosted sign-in check.
+
+## Verified release state — November 13, 2026
+
+The owner confirmed signup works after configuring Clerk in the new Vercel
+project. The support-address SQL was applied in the existing Bloom database; a
+follow-up SELECT showed both `supportEmail` and `replyToEmail` equal to
+`support@joinbloom.online`.
+
+The source update includes homepage/email support links, default business
+settings, safe email delivery diagnostics and production auth configuration checks.
+Local validation passed: TypeScript, a Clerk-mode production build, 7 auth build
+checks, 16 Clerk browser tests, 20 account/email Node tests and 4 email browser tests.
+Provider requests in those tests were mocked. The reported deposit email was
+Delivered in Resend; inbox placement has not been verified.
+
+After Vercel deploys the update, check the production homepage support link and
+confirm `BLOOM_SUPPORT_EMAIL` and `BLOOM_REPLY_TO_EMAIL` are also set to the new
+address. Repository changes do not replace existing Vercel environment values.
