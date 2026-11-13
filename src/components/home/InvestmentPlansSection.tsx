@@ -38,7 +38,7 @@ export const InvestmentPlansSection = ({ onNavigate }: { onNavigate: (view: stri
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-amber-500/15 bg-amber-500/5 text-[10px] md:text-xs text-amber-500 font-bold tracking-[0.2em] font-bybit uppercase mb-1"
           >
             <Layers className="w-3.5 h-3.5 text-amber-500 fill-amber-500/10" />
-            INVESTMENT PLANS
+            Algorithmic Revenue Investment
           </motion.div>
           
           <motion.h2
