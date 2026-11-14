@@ -102,7 +102,7 @@ export const DashboardPlans: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold font-heading text-orbit-white flex items-center gap-2.5">
             <TrendingUp size={24} className="text-orbit-accent shrink-0 animate-pulse" />
-            <span>Investment Plans</span>
+            <span>Algorithmic Revenue Investment</span>
           </h1>
           <p className="text-xs text-orbit-gray-text mt-1 font-sans leading-relaxed">
             Choose your plan and target. Select a plan that fits your budget and timeline and start earning daily rewards. Track progress from your dashboard.
