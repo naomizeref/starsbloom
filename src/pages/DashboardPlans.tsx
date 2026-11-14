@@ -98,14 +98,14 @@ export const DashboardPlans: React.FC = () => {
         <button type="button" disabled={plansLoading} onClick={() => void refreshInvestmentData()} className="block mx-auto mt-3 min-h-11 text-orbit-accent">Retry loading</button>
       </div>}
       {/* Header title */}
-      <div className="border-b border-orbit-border/50 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="border-b border-orbit-border/50 pb-6 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold font-heading text-orbit-white flex items-center gap-2.5">
-            <TrendingUp size={24} className="text-orbit-accent shrink-0 animate-pulse" />
-            <span>Algorithmic Revenue Investment</span>
+          <h1 className="text-[clamp(0.8125rem,3.8vw,1.125rem)] xl:text-xl font-bold font-heading text-orbit-white flex items-center gap-2 tracking-tight">
+            <TrendingUp size={20} className="text-orbit-accent shrink-0" />
+            <span className="whitespace-nowrap">Algorithmic Revenue Investment</span>
           </h1>
           <p className="text-xs text-orbit-gray-text mt-1 font-sans leading-relaxed">
-            Choose your plan and target. Select a plan that fits your budget and timeline and start earning daily rewards. Track progress from your dashboard.
+            Put your capital to work with our algorithmic revenue trading bots. Choose your plan and target. Select a plan that fits your budget and timeline. Track your progress from your dashboard.
           </p>
         </div>
         <div className="bg-orbit-card border border-orbit-border rounded-xl py-2 px-4 shrink-0 font-subheading text-xs">
