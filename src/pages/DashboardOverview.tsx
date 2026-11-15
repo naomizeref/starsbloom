@@ -1,0 +1,675 @@
+import { InvestmentDataStatus } from "../components/InvestmentDataStatus";
+import React, { useState, useMemo } from "react";
+import { useOrbit } from "../context/OrbitContext";
+import { 
+  DollarSign, 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  Briefcase, 
+  Layers, 
+  Activity, 
+  PlusCircle, 
+  MinusCircle, 
+  History,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  Wallet,
+  Shield,
+  Copy,
+  Check,
+  Plus
+} from "lucide-react";
+import { motion } from "motion/react";
+import { DashboardEquityChart } from "../components/charts/DashboardEquityChart";
+import { UserAnnouncements } from "../components/announcements/UserAnnouncements";
+
+interface DashboardOverviewProps {
+  onNavigate: (view: string) => void;
+  onOpenDeposit: () => void;
+  onOpenWithdraw: () => void;
+}
+
+export const DashboardOverview: React.FC<DashboardOverviewProps> = ({ 
+  onNavigate, 
+  onOpenDeposit, 
+  onOpenWithdraw 
+}) => {
+  const { user, plans, topUpInvestment, claimPlanPayout, claimCopyTradePayout, addNotification, siteContent, setInsufficientBalanceOpen } = useOrbit();
+  const [copiedUid, setCopiedUid] = useState(false);
+  const [claimingCopyId, setClaimingCopyId] = useState<string | null>(null);
+  const [claimingInvId, setClaimingInvId] = useState<string | null>(null);
+  const [isToppingUp, setIsToppingUp] = useState(false);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
+  const [topUpTarget, setTopUpTarget] = useState<string | null>(null);
+
+  const handleClaimCopyPayout = async (copyTradeId: string) => {
+    setClaimingCopyId(copyTradeId);
+    try {
+      await claimCopyTradePayout(copyTradeId);
+    } finally {
+      setClaimingCopyId(null);
+    }
+  };
+
+  const handleClaimInvPayout = async (investmentId: string) => {
+    setClaimingInvId(investmentId);
+    try {
+      await claimPlanPayout(investmentId);
+    } finally {
+      setClaimingInvId(null);
+    }
+  };
+  const [topUpAmount, setTopUpAmount] = useState<string>("");
+
+  const getUID = (email: string | null) => {
+    if (!email) return "0000000";
+    let hash = 0;
+    for (let i = 0; i < email.length; i++) {
+      hash = (email.charCodeAt(i) + ((hash << 5) - hash)) | 0;
+    }
+    return String(Math.abs(hash) % 10000000).padStart(7, "0");
+  };
+
+  const uid = getUID(user.email);
+
+  const handleTopUp = async (invId: string) => {
+    if (isToppingUp) return;
+    setTopUpError(null);
+    const val = Number(topUpAmount);
+    if (!Number.isFinite(val) || Math.round(val * 100) <= 0) {
+      setTopUpError("Please enter an amount of at least $0.01.");
+      return;
+    }
+    setIsToppingUp(true);
+    try {
+      const res = await topUpInvestment(invId, val);
+      if (res.success) {
+        setTopUpTarget(null);
+        setTopUpAmount("");
+      } else {
+        if (res.message === "INSUFFICIENT_BALANCE") {
+          setInsufficientBalanceOpen(true);
+        } else {
+          setTopUpError(res.message);
+        }
+      }
+    } catch { setTopUpError("Unable to top up. Please refresh your balance and try again."); }
+    finally { setIsToppingUp(false); }
+  };
+
+  // Compute stats
+  const stats = useMemo(() => {
+    const availableCash = user.balance;
+    const portfolioAssetsValue = user.portfolioValue; // Auto-updates via context market loops
+    const runningInvestments = user.activeInvestments.filter(item => item.status !== "cancelled" && !item.payoutTransactionId && !item.payoutCompleted);
+    // Matured-but-unclaimed copy trades (live-derived status "Completed" but
+    // payout not yet claimed) count as still-active for net-worth purposes —
+    // their capital+profit hasn't hit the balance yet. Only actually-paid
+    // trades (payoutCompleted) move to the completed/history bucket. Without
+    // this, a matured trade's value would vanish from equity until claimed.
+    const runningCopyTrades = user.copyTrades.filter(item => item.status === "Running" || (item.status === "Completed" && !item.payoutCompleted));
+    const completedCopyTrades = user.copyTrades.filter(item => item.status === "Completed" && item.payoutCompleted);
+    const activePlanCapital = runningInvestments.reduce((acc, current) => acc + current.amount, 0);
+    const activePlanProfits = runningInvestments.reduce((acc, current) => acc + current.accumulatedProfit, 0);
+    const activeCopyCapital = runningCopyTrades.reduce((acc, current) => acc + current.amountInvested, 0);
+    const activeCopyExpectedProfit = runningCopyTrades.reduce((acc, current) => acc + current.expectedProfit, 0);
+    
+    const aggregateNetWorth = +(availableCash + portfolioAssetsValue + activePlanCapital + activePlanProfits + activeCopyCapital + activeCopyExpectedProfit).toFixed(2);
+    
+    // Calculate P/L matching average purchase prices
+    const totalCostBasis = user.portfolio.reduce((acc, cur) => acc + (cur.amount * cur.avgBuyPrice), 0);
+    const netPnL = totalCostBasis > 0 ? +(portfolioAssetsValue - totalCostBasis).toFixed(2) : 0;
+    const netPnLPercent = totalCostBasis > 0 ? +((netPnL / totalCostBasis) * 100).toFixed(2) : 0;
+
+    return {
+      availableCash,
+      portfolioAssetsValue,
+      runningInvestments,
+      runningCopyTrades,
+      completedCopyTrades,
+      activePlanCapital,
+      activePlanProfits,
+      activeCopyCapital,
+      activeCopyExpectedProfit,
+      aggregateNetWorth,
+      netPnL,
+      netPnLPercent
+    };
+  }, [user]);
+
+  const {
+    availableCash,
+    portfolioAssetsValue,
+    runningInvestments,
+    runningCopyTrades,
+    completedCopyTrades,
+    activePlanCapital,
+    activePlanProfits,
+    activeCopyCapital,
+    activeCopyExpectedProfit,
+    aggregateNetWorth,
+    netPnL,
+    netPnLPercent
+  } = stats;
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  };
+
+  const itemVariants: any = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
+  };
+
+  return (
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="space-y-4 pb-4 sm:pb-6"
+    >
+      
+<InvestmentDataStatus />
+      {/* 1. Header welcome */}
+      <motion.div variants={itemVariants} className="flex flex-col gap-3 border-b border-orbit-border/50 pb-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <Wallet size={24} className="text-orbit-accent shrink-0" />
+            <h1 className="text-2xl font-bold font-sans tracking-tight text-orbit-white">
+              Asset Overview
+            </h1>
+          </div>
+          <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-sans">
+            <span className="text-slate-300">
+              Welcome back, <span className="text-white font-semibold">{(user.name || user.email || "").toLowerCase()}</span>
+            </span>
+            
+            <span className="hidden sm:inline text-slate-500 select-none font-normal">•</span>
+
+            {/* UID Badge with Copy Action */}
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-300 bg-[#121318] hover:bg-[#1a1d26] border border-orbit-border/70 py-0.5 px-2.5 rounded-md transition-all">
+              <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold font-mono">UID</span>
+              <span className="font-mono text-white font-semibold select-all">{uid}</span>
+              <button 
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(uid);
+                    setCopiedUid(true);
+                    setTimeout(() => setCopiedUid(false), 2000);
+                  } catch { addNotification("Could not copy your UID. Select and copy it manually."); }
+                }}
+                className="text-slate-400 hover:text-orbit-accent transition-colors p-0.5"
+                title="Copy UID"
+              >
+                {copiedUid ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
+              </button>
+            </div>
+
+            {/* Security Badge */}
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-300 bg-[#121318] border border-orbit-border/70 py-0.5 px-2.5 rounded-md">
+              <Shield size={11} className="text-emerald-400 shrink-0" />
+              <span className="text-slate-300">Security:</span>
+              <span className="text-emerald-400 font-bold tracking-wide">High</span>
+            </div>
+
+            {/* Verification Badge */}
+            {user.kyc?.status === "approved" ? (
+              <div className="flex items-center gap-1 text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 py-0.5 px-2.5 rounded-full font-medium shadow-sm">
+                <CheckCircle2 size={11} className="text-emerald-400 shrink-0" />
+                <span>Identity Verified</span>
+              </div>
+            ) : user.kyc?.status === "pending" ? (
+              <div className="flex items-center gap-1 text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/20 py-0.5 px-2.5 rounded-full font-medium shadow-sm">
+                <AlertTriangle size={11} className="text-amber-400 shrink-0" />
+                <span>Verification Pending</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 text-[11px] bg-rose-500/10 text-rose-400 border border-rose-500/20 py-0.5 px-2.5 rounded-full font-medium shadow-sm">
+                <AlertTriangle size={11} className="text-rose-400 shrink-0" />
+                <span>Unverified Identity</span>
+              </div>
+            )}
+          </div>
+        </div>
+ 
+        {/* Quick Deposit/Withdraw Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onOpenDeposit}
+            className="flex items-center gap-1.5 px-4 py-2 bg-orbit-accent text-white font-bold font-subheading text-xs rounded-xl hover:bg-orbit-accent-hover shadow shadow-orbit-accent/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <PlusCircle size={14} /> Deposit
+          </button>
+          <button
+            onClick={onOpenWithdraw}
+            className="flex items-center gap-1.5 px-4 py-2 bg-orbit-card border border-orbit-border hover:bg-orbit-border/50 text-white font-semibold font-subheading text-xs rounded-xl hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <MinusCircle size={14} /> Withdraw
+          </button>
+        </div>
+      </motion.div>
+
+      <UserAnnouncements />
+ 
+      {/* 2. Core balances cards row */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
+        
+        {/* Net Worth */}
+        <div className="bg-gradient-to-br from-orbit-card to-orbit-card/50 border border-orbit-border rounded-xl p-5 hover:border-orbit-accent/40 hover:-translate-y-1 hover:shadow-lg hover:shadow-orbit-accent/5 transition-all duration-300 group">
+          <div className="flex justify-between items-start text-slate-300">
+            <span className="text-[10px] uppercase font-sans font-semibold tracking-wider text-slate-300 group-hover:text-white transition-colors">Total Equity</span>
+            <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+              <Briefcase size={16} />
+            </span>
+          </div>
+          <div className="mt-3 space-y-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xl font-black font-data text-white select-all">
+                ${aggregateNetWorth.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+              <span className="text-[11px] text-slate-300 font-data font-medium">
+                ≈ {((aggregateNetWorth) / 68500).toFixed(4)} BTC
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-[11px]">
+              <span className={`flex items-center font-data font-bold ${netPnL >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                {netPnL >= 0 ? "+" : ""}{netPnL.toLocaleString()} ({netPnLPercent}%)
+              </span>
+              <span className="text-slate-300 font-medium font-sans">Today's P&L</span>
+            </div>
+          </div>
+        </div>
+ 
+        {/* Available Cash balance */}
+        <div className="bg-gradient-to-br from-orbit-card to-orbit-card/50 border border-orbit-border rounded-xl p-5 hover:border-orbit-accent/40 hover:-translate-y-1 hover:shadow-lg hover:shadow-orbit-accent/5 transition-all duration-300 group">
+          <div className="flex justify-between items-start text-slate-300">
+            <span className="text-[10px] uppercase font-sans font-semibold tracking-wider text-slate-300 group-hover:text-white transition-colors">Available Balance</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+              <DollarSign size={16} />
+            </span>
+          </div>
+          <div className="mt-4 space-y-1">
+            <span className="text-2xl font-black font-data text-white select-all">
+              ${availableCash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </span>
+            <p className="text-[11px] text-slate-300 tracking-normal font-sans font-medium">
+              In Orders: <span className="font-data text-white">${(activePlanCapital + activeCopyCapital).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span> USD
+            </p>
+          </div>
+        </div>
+ 
+        {/* Portfolio Assets value */}
+        <div className="bg-gradient-to-br from-orbit-card to-orbit-card/50 border border-orbit-border rounded-xl p-5 hover:border-orbit-accent/40 hover:-translate-y-1 hover:shadow-lg hover:shadow-orbit-accent/5 transition-all duration-300 group">
+          <div className="flex justify-between items-start text-slate-300">
+            <span className="text-[10px] uppercase font-sans font-semibold tracking-wider text-slate-300 group-hover:text-white transition-colors">Derivatives Account</span>
+            <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 group-hover:bg-rose-500 group-hover:text-white transition-colors">
+              <Activity size={16} />
+            </span>
+          </div>
+          <div className="mt-4 space-y-1">
+            <span className="text-xl font-black font-data text-white animate-pulse">
+              ${portfolioAssetsValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </span>
+            <p className="text-[11px] text-slate-300 font-sans font-medium">
+              Fluctuating with global indexes
+            </p>
+          </div>
+        </div>
+ 
+        {/* Dynamic active plan totals */}
+        <div className="bg-gradient-to-br from-orbit-card to-orbit-card/50 border border-orbit-border rounded-xl p-5 hover:border-orbit-accent/40 hover:-translate-y-1 hover:shadow-lg hover:shadow-orbit-accent/5 transition-all duration-300 group relative overflow-hidden">
+          {/* Subtle gold flare for yield */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-3xl rounded-full" />
+          <div className="flex justify-between items-start text-slate-300 relative z-10">
+            <span className="text-[10px] uppercase font-sans font-semibold tracking-wider text-slate-300 group-hover:text-white transition-colors">Plan Yield Capital</span>
+            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+              <Layers size={16} />
+            </span>
+          </div>
+          <div className="mt-4 space-y-1 relative z-10">
+            <span className="text-xl font-black font-data text-orbit-accent">
+              ${(activePlanCapital + activePlanProfits).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </span>
+            <p className="text-[11px] text-emerald-400 font-data">
+              +{activePlanProfits > 0 ? `$${activePlanProfits.toFixed(2)} accrued` : "0.00 accruals"}
+            </p>
+          </div>
+        </div>
+ 
+      </motion.div>
+
+      {/* 2.5 Portfolio Performance Chart */}
+      <motion.div variants={itemVariants} className="bg-orbit-card border border-orbit-border rounded-2xl p-4 hover:shadow-lg hover:shadow-orbit-accent/5 transition-all duration-300">
+        <div className="flex justify-between items-center border-b border-orbit-border/60 pb-3">
+          <div className="flex items-center gap-2">
+            <Activity className="text-orbit-accent" size={18} />
+            <h3 className="text-sm font-bold font-heading text-white">30-Day Equity Trend</h3>
+          </div>
+          <span className="text-xs text-slate-300 font-data">Live Updates</span>
+        </div>
+        <DashboardEquityChart currentEquity={aggregateNetWorth} />
+      </motion.div>
+
+      {/* 3. Middle split grid */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-12 gap-5 font-sans">
+        
+        {/* Left column: Active Investment plans */}
+        <div className="lg:col-span-7 bg-orbit-card border border-orbit-border rounded-2xl p-4 space-y-4">
+          <div className="flex items-center justify-between border-b border-orbit-border/60 pb-3">
+            <h3 className="text-sm font-bold font-heading text-white">Active Investments</h3>
+            <button 
+              onClick={() => onNavigate("dashboard-plans")}
+              className="text-xs text-orbit-accent font-subheading hover:underline cursor-pointer"
+            >
+              View Plans
+            </button>
+          </div>
+
+          {user.activeInvestments.length === 0 ? (
+            <div className="py-8 text-center text-slate-300 space-y-3 font-sans">
+              <FileText className="mx-auto text-orbit-border" size={32} />
+              <p className="text-xs">No active investments found.</p>
+              <button
+                onClick={() => onNavigate("dashboard-plans")}
+                className="px-4 py-1.5 bg-orbit-accent hover:bg-orbit-accent-hover text-[10px] font-bold font-subheading text-white rounded transition-colors cursor-pointer"
+              >
+                Explore Investment Plans
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {user.activeInvestments.map((inv) => {
+                const isCompleted = inv.status === "Completed" || inv.status === "completed";
+                const isPaid = isCompleted && Boolean(inv.payoutTransactionId || inv.payoutCompleted);
+                const isPaused = Boolean(inv.pausedAt);
+                const isClaimable = isCompleted && !inv.payoutTransactionId && !inv.payoutCompleted && !isPaused && user.status === "active";
+                const isClaimingInv = claimingInvId === inv.id;
+                const expectedProfit = inv.expectedProfit ?? inv.accumulatedProfit;
+                const totalReturn = inv.totalReturn ?? inv.amount + expectedProfit;
+                const remainingDays = inv.remainingDays ?? 0;
+                return (
+                  <div 
+                    key={inv.id}
+                    className="p-4 border border-orbit-border bg-orbit-darkcard/50 rounded-xl space-y-3"
+                  >
+                    <div className="flex justify-between items-center text-xs">
+                      <div>
+                        <span className="font-bold text-white font-subheading">{inv.name}</span>
+                        <span className="block text-[9px] text-slate-300 font-data">
+                          {isPaused ? "Maturity countdown paused" : `Matures: ${inv.endDate}`}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="block text-[10px] text-slate-300 uppercase font-subheading">Compounded profit</span>
+                        <strong className="font-data text-orbit-green font-bold">
+                          +${(isCompleted ? expectedProfit : inv.accumulatedProfit).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {/* Progress & Actions */}
+                    <div className="flex items-center justify-between text-[10px] mt-2">
+                      <span className="text-slate-300 font-medium">Allocated: ${inv.amount.toLocaleString()}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-300">{isPaid ? "Completed" : isPaused ? `Paused · ${remainingDays}d left` : isClaimable ? "Matured" : `${remainingDays}d left`}</span>
+                        {!isCompleted && !isPaused && user.status === "active" && (<button
+                          onClick={() => setTopUpTarget(topUpTarget === inv.id ? null : inv.id)}
+                          className="text-[9px] text-white border border-orbit-accent/40 bg-orbit-accent px-2 py-0.5 rounded flex items-center gap-1 hover:bg-orbit-accent-hover transition-colors font-semibold"
+                        >
+                          <Plus size={10} /> Top Up
+                        </button>)}
+                      </div>
+                    </div>
+
+                    {/* Top Up Inline Form */}
+                    {topUpTarget === inv.id && topUpError && <p role="alert" className="text-sm text-red-400">{topUpError}</p>}
+                    {!isCompleted && !isPaused && user.status === "active" && topUpTarget === inv.id && (
+                      <div className="pt-2 mt-2 border-t border-orbit-border/50 flex gap-2 animate-in slide-in-from-top-2">
+                        <input 
+                          type="number"
+                          placeholder="Amount to add ($)"
+                          value={topUpAmount}
+                          onChange={(e) => setTopUpAmount(e.target.value)}
+                          className="w-full bg-orbit-bg border border-orbit-border rounded px-3 py-1 text-xs text-white outline-none focus:border-orbit-accent placeholder:text-slate-500"
+                        />
+                        <button 
+                          disabled={isToppingUp}
+                          onClick={() => handleTopUp(inv.id)}
+                          className="bg-orbit-accent text-white px-3 py-1 rounded text-xs font-bold hover:bg-orbit-accent-hover"
+                        >
+                          {isToppingUp ? "Processing…" : "Confirm"}
+                        </button>
+                      </div>
+                    )}
+                    
+                    <div className="w-full bg-orbit-bg rounded-full h-1.5 mt-2">
+                      <div 
+                        className="bg-orbit-accent h-1.5 rounded-full" 
+                        style={{ width: `${inv.progress}%` }}
+                      />
+                    </div>
+                    {isClaimable && (
+                      <button
+                        type="button"
+                        onClick={() => handleClaimInvPayout(inv.id)}
+                        disabled={isClaimingInv}
+                        className="w-full py-2 bg-orbit-green/15 border border-orbit-green/40 text-emerald-300 hover:bg-orbit-green/25 disabled:opacity-60 disabled:cursor-not-allowed font-bold font-subheading text-[11px] rounded text-center uppercase transition-colors"
+                      >
+                        {isClaimingInv ? "Claiming…" : `Claim Payout $${totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                      </button>
+                    )}
+                    {isPaid && (
+                      <div className="w-full py-2 bg-orbit-green/10 border border-orbit-green/30 text-emerald-400 font-bold font-subheading text-[11px] rounded text-center uppercase">
+                        Paid ${totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Right column: Quick overview portfolio holdings */}
+        <div className="lg:col-span-5 bg-orbit-card border border-orbit-border rounded-xl p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-orbit-border/60 pb-4">
+            <h3 className="text-sm font-bold font-heading text-white">Open Positions</h3>
+            <button 
+              onClick={() => onNavigate("dashboard-portfolio")}
+              className="text-xs font-subheading text-orbit-accent hover:underline cursor-pointer"
+            >
+              View Details
+            </button>
+          </div>
+
+          {user.portfolio.length === 0 ? (
+            <div className="py-12 text-center text-slate-300 font-sans">
+              <p className="text-xs">No open positions. Go to Trade to get started.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {user.portfolio.map((asset) => {
+                const totalCost = asset.amount * asset.avgBuyPrice;
+                const totalMarket = asset.amount * asset.currentPrice;
+                const profitLoss = +(totalMarket - totalCost).toFixed(2);
+                
+                return (
+                  <div 
+                    key={asset.symbol}
+                    className="flex justify-between items-center p-3 border border-orbit-border/70 bg-orbit-bg/60 rounded-lg text-xs"
+                  >
+                    <div>
+                      <strong className="font-data text-white block">{asset.symbol}</strong>
+                      <span className="text-[10px] text-slate-300 font-sans">{asset.amount} holdings</span>
+                    </div>
+
+                    <div className="text-right font-data">
+                      <span className="text-white block font-semibold">${totalMarket.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span className={`text-[10px] font-bold ${profitLoss >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {profitLoss >= 0 ? "+" : ""}{profitLoss.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+      </motion.div>
+
+      {/* 3.5 Copy trading engine */}
+      <motion.section variants={itemVariants} className="bg-orbit-card border border-orbit-border rounded-xl p-5 space-y-5 font-sans hover:shadow-lg hover:shadow-orbit-accent/5 transition-all duration-300">
+        <div className="flex items-center justify-between border-b border-orbit-border/60 pb-3">
+          <h3 className="text-sm font-bold font-heading text-white">Active Copy Trades</h3>
+          <button 
+            onClick={() => onNavigate("copy-trading")}
+            className="text-xs text-orbit-accent font-subheading hover:underline cursor-pointer"
+          >
+            View Traders
+          </button>
+        </div>
+
+        {runningCopyTrades.length === 0 ? (
+          <p className="text-xs text-center text-slate-300 py-6 font-sans">No running copy trades.</p>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {runningCopyTrades.map(trade => {
+              const isPaused = Boolean(trade.pausedAt);
+              const isClaimable = trade.status === "Completed" && !trade.payoutCompleted && !isPaused && user.status === "active";
+              const isClaiming = claimingCopyId === trade.id;
+              return (
+              <div key={trade.id} className="p-4 border border-orbit-border bg-orbit-darkcard/50 rounded-xl space-y-3 text-xs">
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <span className="font-bold text-white font-subheading">{trade.traderName}</span>
+                    <span className="block text-[9px] text-slate-300 font-data">{isPaused ? "Maturity countdown paused" : `Ends: ${new Date(trade.endTimestamp).toLocaleString()}`}</span>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-[10px] font-bold font-subheading border ${isClaimable ? "bg-orbit-green/10 border-orbit-green/30 text-orbit-green" : "bg-orbit-accent/10 border-orbit-accent/30 text-orbit-accent"}`}>{isPaused ? "Paused" : isClaimable ? "Matured" : trade.status}</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-data">
+                  <span className="text-slate-300">Invested<strong className="block text-white text-xs">${trade.amountInvested.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                  <span className="text-slate-300">ROI<strong className="block text-emerald-400 text-xs">{trade.roiPercent}%</strong></span>
+                  <span className="text-slate-300">Profit<strong className="block text-emerald-400 text-xs">${trade.expectedProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                  <span className="text-slate-300">Total<strong className="block text-white text-xs">${trade.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong></span>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-slate-300">
+                  <span>{isPaused ? `Paused · ${trade.remainingDays}d remaining` : isClaimable ? "Matured" : `${trade.remainingDays}d remaining`}</span>
+                  <span>{trade.progress}%</span>
+                </div>
+                <div className="w-full bg-orbit-bg rounded-full h-1.5">
+                  <div className="bg-orbit-accent h-1.5 rounded-full" style={{ width: `${trade.progress}%` }} />
+                </div>
+                {isClaimable && (
+                  <button
+                    type="button"
+                    onClick={() => handleClaimCopyPayout(trade.id)}
+                    disabled={isClaiming}
+                    className="w-full bg-orbit-green/15 border border-orbit-green/40 text-emerald-300 hover:bg-orbit-green/25 disabled:opacity-60 disabled:cursor-not-allowed font-bold font-subheading py-1.5 rounded text-center uppercase text-[10px] transition-colors"
+                  >
+                    {isClaiming ? "Claiming…" : `Claim Payout $${trade.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                  </button>
+                )}
+              </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="border-t border-orbit-border/60 pt-4 space-y-3">
+          <h4 className="text-xs font-bold font-heading text-white">History</h4>
+          {completedCopyTrades.length === 0 ? (
+            <p className="text-xs text-slate-300">No completed copy trades yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {completedCopyTrades.slice(0, 4).map(trade => (
+                <div key={trade.id} className="grid grid-cols-2 md:grid-cols-5 gap-2 p-3 rounded-lg border border-orbit-border/50 bg-orbit-bg/30 text-[11px] font-data">
+                  <span className="text-white font-bold">{trade.traderName}</span>
+                  <span className="text-slate-300">ROI {trade.roiPercent}%</span>
+                  <span className="text-slate-300">Invested ${trade.amountInvested.toLocaleString()}</span>
+                  <span className="text-emerald-400">Returned ${trade.totalReturn.toLocaleString()}</span>
+                  <span className="text-emerald-400 font-subheading">{trade.payoutCompleted ? "Paid" : trade.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.section>
+
+      {/* 4. Bottom Paginated Ledger Transactions */}
+      <motion.section variants={itemVariants} className="bg-orbit-card border border-orbit-border rounded-xl p-6 space-y-6 font-sans hover:shadow-lg hover:shadow-orbit-accent/5 transition-all duration-300">
+        <div className="flex items-center justify-between border-b border-orbit-border/60 pb-4">
+          <div className="flex items-center gap-2">
+            <History className="text-orbit-accent animate-pulse" size={16} />
+            <h3 className="text-sm font-bold font-heading text-white">Recent Transactions</h3>
+          </div>
+          <button 
+            onClick={() => onNavigate("dashboard-transactions")}
+            className="text-xs text-orbit-accent hover:underline font-semibold transition-colors"
+          >
+            View All
+          </button>
+        </div>
+
+        {user.transactions.length === 0 ? (
+          <p className="text-xs text-center text-slate-300 py-6 font-sans">No past transactions found.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse font-sans">
+              <thead>
+                <tr className="border-b border-orbit-border text-[10px] uppercase font-subheading tracking-wider text-slate-300 font-bold bg-orbit-darkcard/30">
+                  <th className="p-3">TxID</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Type</th>
+                  <th className="p-3">Asset</th>
+                  <th className="p-3">Amount</th>
+                  <th className="p-3 pr-4 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-orbit-border/30 font-data">
+                {user.transactions.slice(0, 4).map((tx) => (
+                  <tr key={tx.id} className="hover:bg-orbit-darkcard/40 transition-colors">
+                    <td className="p-3 font-semibold text-white">{tx.id}</td>
+                    <td className="p-3 text-slate-300 font-sans">{tx.date}</td>
+                    <td className="p-3 uppercase">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold font-subheading ${
+                        tx.type === "deposit" ? "bg-orbit-green/10 text-emerald-400" : 
+                        tx.type === "withdrawal" ? "bg-orbit-red/10 text-rose-400" : 
+                        tx.type === "investment" ? "bg-orbit-accent/15 text-orbit-accent" : 
+                        "bg-white/10 text-white"
+                      }`}>
+                        {tx.type}
+                      </span>
+                    </td>
+                    <td className="p-3 font-bold text-white">{tx.asset}</td>
+                    <td className="p-3 font-bold text-white">${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td className="p-3 pr-4 text-right">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-semibold font-subheading ${
+                        tx.status === "completed" || tx.status === "approved" ? "text-emerald-400" :
+                        tx.status === "pending" ? "text-yellow-400" :
+                        tx.status === "rejected" || tx.status === "failed" ? "text-rose-400" :
+                        "text-slate-300"
+                      }`}>
+                        {tx.status === "pending" ? <AlertTriangle size={12} /> : tx.status === "rejected" || tx.status === "failed" ? <AlertTriangle size={12} /> : <CheckCircle2 size={12} />}
+                        {tx.status.toUpperCase()}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </motion.section>
+
+    </motion.div>
+  );
+};
+

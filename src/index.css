@@ -1,0 +1,179 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-subheading: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-data: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-brand: "Outfit", "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+  --font-bybit: "IBM Plex Sans", "Inter", sans-serif;
+  
+  --color-orbit-bg: #080910;
+  --color-orbit-card: #111318;
+  --color-orbit-darkcard: #0C0E14;
+  --color-orbit-accent: #2563EB;
+  --color-orbit-accent-hover: #1D4ED8;
+  --color-orbit-white: #F5F6F8;
+  --color-orbit-gray-text: #94A3B8;
+  --color-orbit-border: #1C2128;
+  --color-orbit-green: #0ECB81;
+  --color-orbit-red: #F6465D;
+}
+
+/* Base resets & custom global styles */
+@layer base {
+  html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    overflow-x: clip;
+    background-color: var(--color-orbit-bg);
+    background-image: none;
+    background-attachment: scroll;
+    color: #F5F6F8;
+    font-family: var(--font-sans);
+  }
+
+  /* Default field size; the mobile override below also covers small utilities. */
+  input, select, textarea {
+    font-size: 16px;
+  }
+
+  ::selection {
+    background-color: rgba(37, 99, 235, 0.30);
+    color: #F5F6F8;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.45);
+    outline-offset: 2px;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Custom premium scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0C0E14;
+}
+::-webkit-scrollbar-thumb {
+  background: #1C2128;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-orbit-accent);
+}
+
+/* Glow effects & micro-interactions */
+.gold-glow {
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.15);
+}
+.gold-glow-hover:hover {
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.22);
+  border-color: var(--color-orbit-accent);
+}
+.glass-panel {
+  background: rgba(17,19,24,0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.orb-panel {
+  @apply rounded-[28px] border border-orbit-border/70 bg-gradient-to-br from-[#111318] via-[#0C0E14] to-[#111318] shadow-[0_6px_20px_rgba(0,0,0,0.25)];
+}
+
+.orb-card-hover {
+  @apply transition-colors duration-200 hover:border-orbit-accent/40;
+}
+
+.orb-input {
+  @apply w-full rounded-2xl border border-orbit-border/70 bg-[#0C0E14] px-4 py-3 text-sm text-orbit-white shadow-sm transition-colors duration-200 placeholder:text-zinc-500 focus:border-orbit-accent focus:ring-2 focus:ring-orbit-accent/15;
+}
+
+.orb-button {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orbit-accent to-[#1D4ED8] px-5 py-3 font-semibold text-white shadow transition-all duration-200 hover:opacity-95;
+}
+
+.orb-button-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-orbit-border/70 bg-[#111318] px-5 py-3 font-semibold text-orbit-white transition-all duration-200 hover:border-orbit-accent/50 hover:text-orbit-accent;
+}
+
+/* Keep controls readable before AND during focus, so iOS does not zoom on tap.
+   Outside Tailwind's layers to override text-xs/text-sm; :root also outranks
+   shared component classes such as .orb-input. Preserve user pinch-to-zoom. */
+@media (max-width: 1023px), (hover: none) and (pointer: coarse) {
+  :root :is(input, select, textarea) {
+    font-size: max(16px, 1rem);
+  }
+}
+
+
+@media (max-width: 767px) {
+  body {
+    background-attachment: scroll;
+  }
+
+  .orb-card-hover:hover,
+  .orb-button:hover,
+  .orb-button-secondary:hover {
+    transform: none;
+  }
+}
+
+/* Keep balances and decorative icons still. Loading spinners remain animated. */
+#root :is(.animate-pulse, .animate-bounce) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* Keep each deposit's evidence and review controls together at every width. */
+.deposit-review { display: block; }
+.deposit-review td { display: block; min-width: 0; padding: 0.5rem 0; }
+.deposit-review td::before {
+  content: attr(data-label);
+  display: block;
+  margin-bottom: 0.375rem;
+  color: var(--color-orbit-gray-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Keep identity details, evidence and review controls within the same viewport. */
+.kyc-review { display: block; }
+.kyc-review td { display: block; min-width: 0; overflow-wrap: anywhere; }
+.kyc-review td[data-label] { padding: 0.5rem 0; }
+.kyc-review td[data-label]::before {
+  content: attr(data-label);
+  display: block;
+  margin-bottom: 0.375rem;
+  color: var(--color-orbit-gray-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+}

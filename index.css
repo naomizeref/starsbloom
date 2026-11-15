@@ -1,0 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-subheading: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-data: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-brand: "Outfit", "Space Grotesk", "Plus Jakarta Sans", sans-serif;
+  --font-bybit: "IBM Plex Sans", "Inter", sans-serif;
+  
+  --color-orbit-bg: #FFFFFF; /* Light background */
+  --color-orbit-card: #FFFFFF; /* Card background */
+  --color-orbit-darkcard: #F8FAFC; /* Light content panel background */
+  --color-orbit-accent: #2563EB; /* Bloom blue primary accent */
+  --color-orbit-accent-hover: #1D4ED8;
+  --color-orbit-white: #FFFFFF; /* High-contrast white */
+  --color-orbit-gray-text: #94A3B8; /* Neutral secondary text on light bg */
+  --color-orbit-border: #E2E8F0; /* Light border color */
+  --color-orbit-green: #0ECB81; /* Success trade green */
+  --color-orbit-red: #F6465D; /* Danger bearish red */
+}
+
+/* Base resets & custom global styles */
+@layer base {
+  html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background-color: var(--color-orbit-bg);
+    background-image: none;
+    background-attachment: scroll;
+    color: #0F172A; /* Dark slate text for readability on white */
+    font-family: var(--font-sans);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent browser-level zooming on inputs dynamically */
+  input, select, textarea {
+    font-size: 16px;
+  }
+
+  ::selection {
+    background-color: rgba(37, 99, 235, 0.18);
+    color: #0F172A;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.35);
+    outline-offset: 2px;
+  }
+}
+
+/* Custom premium scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F8FAFC;
+}
+::-webkit-scrollbar-thumb {
+  background: #E2E8F0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-orbit-accent);
+}
+
+/* Glow effects & micro-interactions */
+.gold-glow {
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.12);
+}
+.gold-glow-hover:hover {
+  box-shadow: 0 0 20px rgba(37, 99, 235, 0.18);
+  border-color: var(--color-orbit-accent);
+}
+.glass-panel {
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.orb-panel {
+  @apply rounded-[28px] border border-orbit-border/70 bg-gradient-to-br from-white via-[#F8FAFC] to-white shadow-[0_6px_20px_rgba(15,23,42,0.06)];
+}
+
+.orb-card-hover {
+  @apply transition-all duration-300 hover:-translate-y-1 hover:border-orbit-accent/40 hover:shadow-[0_12px_30px_rgba(37,99,235,0.06)];
+}
+
+.orb-input {
+  @apply w-full rounded-2xl border border-orbit-border/70 bg-white px-4 py-3 text-sm text-[#0F172A] shadow-sm transition-all duration-200 placeholder:text-zinc-400 focus:border-orbit-accent focus:ring-2 focus:ring-orbit-accent/10;
+}
+
+.orb-button {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orbit-accent to-[#1D4ED8] px-5 py-3 font-semibold text-orbit-bg shadow-lg shadow-orbit-accent/20 transition-all duration-200 hover:opacity-95;
+}
+
+.orb-button-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-2xl border border-orbit-border/70 bg-white px-5 py-3 font-semibold text-orbit-white transition-all duration-200 hover:border-orbit-accent/60 hover:text-orbit-accent;
+}
+
+
+

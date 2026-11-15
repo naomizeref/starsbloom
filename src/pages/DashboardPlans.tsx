@@ -1,0 +1,411 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { InvestmentDataStatus } from "../components/InvestmentDataStatus";
+import { useOrbit } from "../context/OrbitContext";
+import { Layers, Target, Coins, ShieldAlert, Timer, TrendingUp, Activity, Sparkles, Crown, Gem, Award } from "lucide-react";
+
+export const DashboardPlans: React.FC = () => {
+  const { plans, plansLoading, plansError, refreshInvestmentData, user, investInPlan, claimPlanPayout, setInsufficientBalanceOpen } = useOrbit();
+  const enabledPlans = useMemo(() => plans.filter((plan) => plan.enabled && plan.status === "active").sort((a, b) => a.displayOrder - b.displayOrder || a.minDeposit - b.minDeposit), [plans]);
+  const [selectedPlanId, setSelectedPlanId] = useState("plan-gold");
+  const [investAmountText, setInvestAmountText] = useState("");
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleClaimPayout = async (investmentId: string) => {
+    setClaimingId(investmentId);
+    try {
+      await claimPlanPayout(investmentId);
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
+  const getPlanIcon = (planId: string) => {
+    switch (planId) {
+      case "plan-bronze":
+        return <Award size={18} className="text-[#a55a29] shrink-0" />;
+      case "plan-silver":
+        return <Layers size={18} className="text-[#94a3b8] shrink-0" />;
+      case "plan-gold":
+        return <Crown size={18} className="text-[#eab308] shrink-0" />;
+      case "plan-platinum":
+        return <Sparkles size={18} className="text-zinc-300 shrink-0" />;
+      case "plan-diamond":
+        return <Gem size={18} className="text-cyan-200 shrink-0" />;
+      default:
+        return <Coins size={18} className="text-orbit-accent shrink-0" />;
+    }
+  };
+
+  const activePlanObj = enabledPlans.find(p => p.id === selectedPlanId) || enabledPlans[0];
+
+  useEffect(() => {
+    if (enabledPlans.length && !enabledPlans.some((plan) => plan.id === selectedPlanId)) {
+      setSelectedPlanId(enabledPlans[0].id);
+    }
+  }, [enabledPlans, selectedPlanId]);
+
+  const handleInvestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setFeedback(null);
+
+    const amount = parseFloat(investAmountText);
+    if (!amount || amount <= 0) {
+      setFeedback({ type: "error", message: "Please specify a valid numeric capital amount." });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await investInPlan(selectedPlanId, amount);
+      if (res.success) {
+        setFeedback({ type: "success", message: res.message });
+        setInvestAmountText("");
+      } else {
+        if (res.message === "INSUFFICIENT_BALANCE" || res.message.toLowerCase().includes("insufficient")) {
+          setInsufficientBalanceOpen(true);
+        } else if (res.message === "AUTH_REQUIRED") {
+          setFeedback({ type: "error", message: "Please sign in to invest." });
+        } else {
+          setFeedback({ type: "error", message: res.message });
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Calculates estimated returns for the input amount
+  const projections = useMemo(() => {
+    if (!activePlanObj) return null;
+    const amt = parseFloat(investAmountText) || 0;
+    const profit = amt * (activePlanObj.roiPercent / 100);
+    return {
+      profit: +profit.toFixed(2),
+      total: +(amt + profit).toFixed(2),
+      daily: +(profit / activePlanObj.durationDays).toFixed(2)
+    };
+  }, [activePlanObj, investAmountText]);
+
+  return (
+    <div className="space-y-4 pb-4 sm:pb-6 font-sans">
+      
+      <InvestmentDataStatus />
+      {!activePlanObj && <div className="bg-orbit-card border border-orbit-border rounded-2xl p-6 text-center text-sm text-orbit-gray-text">
+        {plansLoading ? "Loading investment plans…" : plansError ? "Plans are temporarily unavailable." : "No investment plans are currently available."}
+        <button type="button" disabled={plansLoading} onClick={() => void refreshInvestmentData()} className="block mx-auto mt-3 min-h-11 text-orbit-accent">Retry loading</button>
+      </div>}
+      {/* Header title */}
+      <div className="border-b border-orbit-border/50 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold font-heading text-orbit-white flex items-center gap-2.5">
+            <TrendingUp size={24} className="text-orbit-accent shrink-0 animate-pulse" />
+            <span>Investment Plans</span>
+          </h1>
+          <p className="text-xs text-orbit-gray-text mt-1 font-sans leading-relaxed">
+            Choose your plan and target. Select a plan that fits your budget and timeline and start earning daily rewards. Track progress from your dashboard.
+          </p>
+        </div>
+        <div className="bg-orbit-card border border-orbit-border rounded-xl py-2 px-4 shrink-0 font-subheading text-xs">
+          Available Balance: <strong className="text-orbit-accent font-data">${user.balance.toLocaleString()}</strong>
+        </div>
+      </div>
+
+      {/* Side-by-Side Plan Cards as requested by user */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 font-sans">
+        {enabledPlans.map((p) => {
+          const isSelected = p.id === selectedPlanId;
+          const isPaused = p.status === "paused";
+          return (
+            <div 
+              key={p.id}
+              onClick={() => {
+                if (!isPaused) {
+                  setSelectedPlanId(p.id);
+                  setFeedback(null);
+                }
+              }}
+              className={`p-5 rounded-2xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between h-80 cursor-pointer ${
+                isSelected 
+                  ? "border-orbit-accent bg-orbit-accent/5 shadow-lg shadow-orbit-accent/10 scale-[1.01]" 
+                  : "border-orbit-border bg-orbit-darkcard/40 hover:border-orbit-accent/40 hover:bg-orbit-darkcard/60"
+              } ${isPaused ? "opacity-50 cursor-not-allowed border-red-500/10" : ""}`}
+            >
+              {isSelected && (
+                <div className="absolute top-0 right-0 bg-orbit-accent text-white font-extrabold uppercase text-[8px] py-1 px-3 rounded-bl-xl tracking-widest font-subheading shadow-sm">
+                  Selected
+                </div>
+              )}
+              
+              <div className="space-y-4">
+                <div>
+                  <div className="inline-flex items-center justify-center bg-blue-500/10 border border-blue-500/20 p-1 rounded-md mb-2">
+                    <Activity size={13} className="text-blue-400 animate-pulse" />
+                  </div>
+                  <h3 className="text-base font-extrabold text-white tracking-tight font-sans mt-0.5 flex items-center gap-2">
+                    {getPlanIcon(p.id)}
+                    <span>{p.name}</span>
+                  </h3>
+                  <p className="text-[10px] text-slate-300 mt-1.5 leading-normal font-sans line-clamp-2">{p.description}</p>
+                </div>
+
+                <div className="space-y-1.5 border-t border-orbit-border/50 pt-3">
+                  <div className="flex justify-between text-[11px] font-sans">
+                    <span className="text-slate-300">Duration:</span>
+                    <strong className="text-white font-bold font-data flex items-center gap-1">
+                      <Timer size={10} className="text-orbit-accent" />
+                      {p.durationDays} Days
+                    </strong>
+                  </div>
+                  <div className="flex justify-between text-[11px] font-sans">
+                    <span className="text-slate-300">Deposit:</span>
+                    <strong className="text-white font-bold font-data">
+                      ${p.minDeposit.toLocaleString()} - {p.maxDeposit >= 10000000 ? "Unlimited" : `$${p.maxDeposit.toLocaleString()}`}
+                    </strong>
+                  </div>
+                  <div className="flex justify-between text-[11px] font-sans">
+                    <span className="text-slate-300">Returns:</span>
+                    <strong className="text-emerald-400 font-black font-data">
+                      +{p.roiPercent}% ROI
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-orbit-border/30">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isPaused) {
+                      setSelectedPlanId(p.id);
+                      setFeedback(null);
+                      // Scroll to amount input
+                      document.getElementById("investAmountInput")?.focus();
+                    }
+                  }}
+                  className={`w-full py-2 rounded-xl text-center text-[10px] font-black uppercase tracking-wider font-subheading transition-all ${
+                    isPaused
+                      ? "bg-red-500/10 text-rose-400 border border-red-500/20"
+                      : isSelected
+                        ? "bg-orbit-accent text-white shadow hover:bg-orbit-accent-hover font-bold"
+                        : "bg-orbit-border text-white hover:bg-orbit-accent hover:text-white border border-orbit-border"
+                  }`}
+                  disabled={isPaused}
+                >
+                  {isPaused ? "Suspended" : "Invest Now"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        
+        {/* Left column: Selector + Allocation inputs (col-span-7) */}
+        {activePlanObj && <div className="lg:col-span-7 bg-orbit-card border border-orbit-border rounded-2xl p-4 space-y-4">
+          <h3 className="text-sm font-bold font-sans text-white border-b border-orbit-border/50 pb-3 flex flex-wrap items-center justify-between gap-y-2">
+            <span className="flex items-center gap-2">
+              <Coins size={16} className="text-orbit-accent animate-spin" style={{ animationDuration: "12s" }} />
+              <span>Invest to Earn: <span className="text-orbit-accent font-sans font-extrabold">{activePlanObj.name}</span></span>
+            </span>
+            <span className="flex items-center gap-1.5 bg-[#121318] border border-orbit-border/70 py-1 px-2.5 rounded-lg text-[11px] font-sans font-medium text-slate-300">
+              {getPlanIcon(activePlanObj.id)}
+              <span className="text-white font-semibold">{activePlanObj.name}</span>
+            </span>
+          </h3>
+
+          <form onSubmit={handleInvestSubmit} className="space-y-4">
+            
+            {/* Display message logs */}
+            {feedback && (
+              <div role={feedback.type === "error" ? "alert" : "status"} className={`p-4 text-xs rounded-xl border font-sans ${
+                feedback.type === "error" ? "bg-orbit-red/10 border-orbit-red/30 text-rose-400" : "bg-orbit-green/10 border-orbit-green/30 text-emerald-400"
+              }`}>
+                {feedback.message}
+              </div>
+            )}
+
+            {/* Selected Plan statistics parameters */}
+            <div className="grid grid-cols-3 gap-4 border border-orbit-border/70 p-4 bg-orbit-darkcard/35 rounded-xl text-xs font-sans">
+              <div className="space-y-1">
+                <span className="text-slate-300 text-[9px] uppercase tracking-wider block font-sans font-bold">Term</span>
+                <strong className="text-white text-sm font-sans font-extrabold block">{activePlanObj.durationDays} Days</strong>
+              </div>
+              <div className="space-y-1">
+                <span className="text-slate-300 text-[9px] uppercase tracking-wider block font-sans font-bold">Min Deposit</span>
+                <strong className="text-white text-sm font-sans font-extrabold block">${activePlanObj.minDeposit.toLocaleString()}</strong>
+              </div>
+              <div className="space-y-1">
+                <span className="text-slate-300 text-[9px] uppercase tracking-wider block font-sans font-bold">Max Deposit</span>
+                <strong className="text-white text-sm font-sans font-extrabold block">
+                  {activePlanObj.maxDeposit === 10000000 ? "No Limit" : `$${activePlanObj.maxDeposit.toLocaleString()}`}
+                </strong>
+              </div>
+            </div>
+
+            {/* Input Capital mount size */}
+            <div className="space-y-2 font-sans">
+              <div className="flex justify-between text-[10px] uppercase text-slate-300 font-bold font-sans">
+                <span>Amount ($)</span>
+                <span className="text-slate-300 font-sans font-semibold">Available: ${user.balance.toLocaleString()}</span>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-300 font-bold font-sans">
+                  $
+                </span>
+                <input
+                  id="investAmountInput"
+                  aria-label="Investment amount in USD"
+                  type="number"
+                  step="0.01"
+                  min={Math.max(0.01, activePlanObj.minDeposit)}
+                  max={activePlanObj.maxDeposit}
+                  required
+                  value={investAmountText}
+                  onChange={(e) => setInvestAmountText(e.target.value)}
+                  placeholder="Amount to invest"
+                  className="w-full bg-[#121318] border border-orbit-border/80 focus:border-orbit-accent rounded-xl pl-8 pr-4 py-3 text-xs text-white font-sans font-semibold focus:outline-none placeholder:text-slate-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-3.5 bg-orbit-accent hover:bg-orbit-accent-hover disabled:opacity-70 disabled:cursor-not-allowed text-white font-bold font-subheading text-xs uppercase shadow hover:shadow-orbit-accent/15 transition-all text-center cursor-pointer rounded-xl flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </>
+              ) : "Invest Now"}
+            </button>
+          </form>
+        </div>}
+
+        {/* Right column: Estimates + Active allocations status (col-span-5) */}
+        <div className="lg:col-span-5 flex flex-col justify-between gap-6">
+          
+          {/* Projections card */}
+          {activePlanObj && projections && <div className="bg-orbit-card border border-orbit-border rounded-xl p-5 space-y-4 font-sans">
+            <h4 className="text-xs font-subheading tracking-widest text-orbit-accent border-b border-orbit-border/50 pb-2 flex items-center justify-between">
+              Earnings Projection
+              <Target size={14} />
+            </h4>
+
+            <div className="space-y-3.5 text-xs text-slate-300 font-sans">
+              <div className="flex justify-between items-center bg-orbit-bg/40 p-2.5 border border-orbit-border/30 rounded-lg">
+                <span className="font-subheading">ROI:</span>
+                <strong className="text-emerald-400 font-bold font-data text-sm">+{activePlanObj.roiPercent}%</strong>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span>Net Profit:</span>
+                <strong className="text-emerald-400 font-bold font-data">${projections.profit.toLocaleString()}</strong>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span>Estimated daily accrual:</span>
+                <strong className="text-white font-semibold font-data">${projections.daily}/day</strong>
+              </div>
+
+              <div className="flex justify-between items-center border-t border-orbit-border/40 pt-3">
+                <span className="text-white font-subheading font-bold">Total return:</span>
+                <strong className="text-base text-white font-bold font-data">${projections.total.toLocaleString()}</strong>
+              </div>
+            </div>
+          </div>}
+
+          {/* Active stats listings summary wrapper */}
+          <div className="bg-gradient-to-br from-orbit-darkcard to-orbit-card border border-orbit-border rounded-xl p-5 space-y-4 flex-1">
+            <h4 className="text-xs font-bold font-heading text-white border-b border-orbit-border/60 pb-2 flex items-center justify-between">
+              My Active Plans
+              <Timer className="text-orbit-accent animate-pulse" size={14} />
+            </h4>
+
+            {user.activeInvestments.length === 0 ? (
+              <p className="text-xs text-center text-slate-300 py-12 font-sans">No active plans. Select a plan to start earning.</p>
+            ) : (
+              <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 font-sans">
+                {user.activeInvestments.map((inv) => {
+                  const isMaturedComplete = inv.status === "Completed" || inv.status === "completed";
+                  const isPaid = isMaturedComplete && Boolean(inv.payoutTransactionId || inv.payoutCompleted);
+                  const isPaused = Boolean(inv.pausedAt);
+                  const isClaimable = isMaturedComplete && !inv.payoutTransactionId && !inv.payoutCompleted && !isPaused && user.status === "active";
+                  const isClaiming = claimingId === inv.id;
+                  const expectedProfit = inv.expectedProfit ?? inv.accumulatedProfit;
+                  const totalReturn = inv.totalReturn ?? inv.amount + expectedProfit;
+                  const remainingDays = inv.remainingDays ?? 0;
+                  return (
+                    <div 
+                      key={inv.id}
+                      className="p-3.5 border border-orbit-border bg-orbit-bg/50 rounded-xl space-y-2 text-xs"
+                    >
+                      <div className="flex justify-between font-bold text-white font-sans">
+                        <span>{inv.name}</span>
+                        <span className="text-emerald-400 font-data">
+                          +${(isMaturedComplete ? expectedProfit : inv.accumulatedProfit).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div className="w-full bg-orbit-border h-1 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-orbit-accent h-full"
+                          style={{ width: `${inv.progress}%` }}
+                        />
+                      </div>
+
+                      <div className="flex justify-between text-[9px] text-slate-300 font-data">
+                        <span>Funded: ${inv.amount.toLocaleString()}</span>
+                        <span className="font-subheading">{isPaid ? "Completed" : isPaused ? `Paused · ${remainingDays}d left` : isClaimable ? "Matured" : `${remainingDays}d left`}</span>
+                      </div>
+                      {isClaimable && (
+                        <button
+                          type="button"
+                          onClick={() => handleClaimPayout(inv.id)}
+                          disabled={isClaiming}
+                          className="w-full bg-orbit-green/15 border border-orbit-green/40 text-emerald-300 hover:bg-orbit-green/25 disabled:opacity-60 disabled:cursor-not-allowed font-bold font-subheading py-1.5 rounded text-center uppercase text-[10px] mt-1 transition-colors"
+                        >
+                          {isClaiming ? "Claiming…" : `Claim Payout $${totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                        </button>
+                      )}
+                      {isPaid && (
+                        <div className="w-full bg-orbit-green/10 border border-orbit-green/30 text-emerald-400 font-bold font-subheading py-1.5 rounded text-center uppercase text-[10px] mt-1">
+                          Paid ${totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Safety regulations disclosures */}
+      <section className="p-4 border border-orbit-border rounded-xl bg-orbit-card/45 flex gap-3 text-xs leading-relaxed text-slate-300 font-sans">
+        <ShieldAlert size={18} className="text-orbit-accent shrink-0 mt-0.5 animate-bounce" />
+        <div>
+          <strong className="text-white font-subheading block mb-0.5">Earn risk disclaimer:</strong>
+          Your position follows the terms saved when you invest. After maturity, use Claim Payout to transfer the principal and earned return to your wallet.
+        </div>
+      </section>
+
+    </div>
+  );
+};
+
+
+
+

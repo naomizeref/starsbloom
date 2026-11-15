@@ -1,0 +1,173 @@
+import React, { useState } from "react";
+import { useOrbit } from "../../../context/OrbitContext";
+import { motion } from "motion/react";
+import { MessageSquare, Send, X as XIcon, Search, AlertTriangle } from "lucide-react";
+
+export const AdminSupportTab: React.FC = () => {
+  const { supportTickets, adminReplyToTicket, adminCloseTicket, adminSetTicketPriority, supportError, supportLoading, refreshSupport } = useOrbit();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  const allTickets = supportTickets;
+
+  const sorted = [...allTickets].sort((a, b) => {
+    const statusOrder: Record<string, number> = { open: 0, pending: 1, resolved: 2 };
+    return (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3);
+  });
+
+  const filtered = sorted.filter(t =>
+    t.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.userEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    t.subject.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const openCount = allTickets.filter(t => t.status === "open").length;
+
+  const statusColors: Record<string, string> = {
+    open: "text-red-400 bg-red-500/10 border-red-500/30",
+    pending: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30",
+    resolved: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+  };
+
+  const priorityColors: Record<string, string> = {
+    high: "text-red-400 bg-red-500/10 border-red-500/30",
+    medium: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30",
+    low: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+  };
+
+  const [busy, setBusy] = useState(false);
+  const [feedbackError, setFeedbackError] = useState(false);
+  const runAction = async (action: () => Promise<void>, message: string) => {
+    if (busy) return;
+    setBusy(true); setFeedback(null);
+    try { await action(); setFeedbackError(false); setFeedback(message); }
+    catch (error) { setFeedbackError(true); setFeedback(error instanceof Error ? error.message : "Could not update ticket. Please retry."); }
+    finally { setBusy(false); }
+  };
+  const handleReply = (ticketId: string) => {
+    const text = replyTexts[ticketId];
+    if (!text?.trim()) return;
+    return runAction(async () => {
+      await adminReplyToTicket(ticketId, text.trim());
+      setReplyTexts(prev => ({ ...prev, [ticketId]: "" }));
+    }, "Reply sent successfully.");
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="space-y-6">
+      {(supportError || supportLoading) && <div role={supportError ? "alert" : "status"} className="rounded-xl border border-orbit-border p-3 text-sm text-orbit-white">
+        {supportError || "Loading support tickets…"}
+        {supportError && <button disabled={supportLoading} onClick={() => void refreshSupport()} className="ml-3 min-h-11 px-3 text-orbit-accent">Retry loading</button>}
+      </div>}
+      {/* Header */}
+      <div className="bg-orbit-card border border-orbit-border rounded-2xl p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-orbit-white flex items-center gap-2">
+              <MessageSquare size={20} className="text-[#DFAD12]" /> Ticket Helpdesk
+            </h1>
+            <p className="text-xs text-orbit-gray-text mt-1">Manage and respond to user support tickets.</p>
+          </div>
+          {openCount > 0 && (
+            <span className="flex items-center gap-2 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-full animate-pulse">
+              <AlertTriangle size={12} /> {openCount} Open Tickets
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Feedback */}
+      {feedback && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} role={feedbackError ? "alert" : "status"} className={`p-3 rounded-xl border text-xs font-bold ${feedbackError ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"}`}>
+          {feedback}
+        </motion.div>
+      )}
+
+      {/* Search */}
+      <div className="relative">
+        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-orbit-gray-text" />
+        <input type="text" placeholder="Search tickets..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          className="w-full pl-11 pr-4 py-3 bg-orbit-card border border-orbit-border rounded-xl text-sm text-orbit-white placeholder:text-orbit-gray-text focus:outline-none focus:border-orbit-accent" />
+      </div>
+
+      {/* Tickets */}
+      <div className="space-y-3">
+        {filtered.map(ticket => {
+          const isExpanded = expandedTicket === ticket.id;
+          return (
+            <div key={ticket.id} className={`bg-orbit-card border rounded-2xl overflow-hidden ${ticket.status === "open" ? "border-red-500/30" : "border-orbit-border"}`}>
+              <button onClick={() => setExpandedTicket(isExpanded ? null : ticket.id)}
+                className="w-full flex flex-col sm:flex-row sm:items-center justify-between p-4 hover:bg-orbit-border/20 transition-colors cursor-pointer text-left gap-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#DFAD12] to-orange-500 flex items-center justify-center text-white text-[10px] font-black">
+                    {ticket.userName?.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-orbit-white">{ticket.subject}</p>
+                    <p className="text-[10px] text-orbit-gray-text">{ticket.userName} • {ticket.userEmail} • {ticket.date}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${priorityColors[ticket.priority]}`}>
+                    {ticket.priority.toUpperCase()}
+                  </span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusColors[ticket.status]}`}>
+                    {ticket.status.toUpperCase()}
+                  </span>
+                </div>
+              </button>
+
+              {isExpanded && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} className="border-t border-orbit-border p-4 space-y-4 bg-orbit-bg/50">
+                  {/* Messages */}
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {ticket.messages.map((msg: any, idx: number) => (
+                      <div key={idx} className={`flex ${msg.sender === "support" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[80%] px-4 py-2 rounded-2xl text-xs ${msg.sender === "support" ? "bg-orbit-accent/20 text-orbit-accent rounded-br-none" : "bg-orbit-card border border-orbit-border text-orbit-white rounded-bl-none"}`}>
+                          <p className="break-words">{msg.text}</p>
+                          <p className="text-[9px] text-orbit-gray-text mt-1">{msg.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex-1 flex gap-2">
+                      <input disabled={busy} aria-label="Reply message" placeholder="Type a reply..." value={replyTexts[ticket.id] || ""} onChange={e => setReplyTexts(prev => ({ ...prev, [ticket.id]: e.target.value }))}
+                        onKeyDown={e => { if (e.key === "Enter") handleReply(ticket.id); }}
+                        className="min-w-0 flex-1 px-4 py-2 bg-orbit-card border border-orbit-border rounded-xl text-xs text-orbit-white placeholder:text-orbit-gray-text focus:outline-none focus:border-orbit-accent" />
+                      <button disabled={busy} aria-label="Send reply" onClick={() => handleReply(ticket.id)}
+                        className="px-4 py-2 bg-orbit-accent hover:bg-orbit-accent-hover text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shadow-sm">
+                        <Send size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-orbit-border/50">
+                    {(["low", "medium", "high"] as const).map(p => (
+                      <button key={p} disabled={busy} onClick={() => runAction(() => adminSetTicketPriority(ticket.id, p), "Priority updated.")}
+                        className={`px-3 py-1 text-[10px] font-bold rounded-lg border cursor-pointer transition-colors ${ticket.priority === p ? priorityColors[p] : "text-orbit-gray-text border-orbit-border hover:border-orbit-accent"}`}>
+                        {p.toUpperCase()}
+                      </button>
+                    ))}
+                    <button disabled={busy || ticket.status === "resolved"} onClick={() => runAction(() => adminCloseTicket(ticket.id), "Ticket closed.")}
+                      className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold rounded-lg hover:bg-emerald-500/20 cursor-pointer">
+                      Mark Resolved
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+          );
+        })}
+
+        {filtered.length === 0 && (
+          <div className="text-center py-12 text-orbit-gray-text text-sm">No support tickets found.</div>
+        )}
+      </div>
+    </motion.div>
+  );
+};

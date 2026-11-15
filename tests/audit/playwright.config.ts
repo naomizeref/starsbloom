@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({testDir:'.',testMatch:'*.spec.ts',workers:1,timeout:60000,outputDir:'../../test-results/audit',reporter:'list',use:{baseURL:'http://127.0.0.1:5188',launchOptions:{executablePath:process.env.CHROME_PATH||'/usr/bin/google-chrome',args:['--no-sandbox']}},webServer:{command:'npx vite --config tests/audit/vite.config.ts',url:'http://127.0.0.1:5188/tests/audit/index.html',cwd:'../..',reuseExistingServer:false}});

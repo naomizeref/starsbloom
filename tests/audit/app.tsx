@@ -1,0 +1,11 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import App from '../../src/App';
+import { SettingsPersistence } from './settings';
+import '../../src/index.css';
+const persistence=new URLSearchParams(location.search).get('mode')==='settings';
+const route = new URLSearchParams(location.search).get('route') || '/';
+history.replaceState({},'',route);
+createRoot(document.getElementById('root')!).render(<BrowserRouter>{persistence?<SettingsPersistence/>:<App/>}<Toaster/></BrowserRouter>);

@@ -1,0 +1,11 @@
+export { TradeFeaturesChart as TradeFeatures } from './charts/TradeFeaturesChart';
+export { ZeroPercentLoopCard } from './home/ZeroPercentLoopCard';
+export { InvestmentPlansSection } from './home/InvestmentPlansSection';
+export { WhyBloom } from './home/WhyBloom';
+export { Confidence } from './home/Confidence';
+export { HomeVideos } from './home/HomeVideos';
+export { AboutUs } from './home/AboutUs';
+export { GetStarted } from './home/GetStarted';
+export { Testimonials } from './home/Testimonials';
+export { ContactUs } from './home/ContactUs';
+export { Footer } from './Footer';
